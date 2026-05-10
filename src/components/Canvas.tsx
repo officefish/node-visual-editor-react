@@ -248,6 +248,15 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
     return worldToScreen(worldX, worldY, offsetX, offsetY, zoom);
   };
 
+  // Проверяем, выделена ли кнопка
+  const isButtonSelected = (nodeId: number) => {
+    return selectedNodeIds.has(nodeId);
+  };
+
+  // Размер узла в мировых координатах
+  const NODE_WIDTH = 200;
+  const NODE_HEIGHT = 90;
+
   return (
     <div ref={containerRef} className="relative w-full h-full">
       <canvas
@@ -263,25 +272,32 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
       />
       
       {/* Render button nodes as interactive HTML elements */}
-        {buttonNodes.map(node => {
+      {buttonNodes.map(node => {
         const screenPos = getButtonScreenPosition(node.x, node.y);
+        const isSelected = isButtonSelected(node.id);
+        
+        // Размеры в экранных координатах с учетом масштаба
+        const screenWidth = NODE_WIDTH * zoom;
+        const screenHeight = NODE_HEIGHT * zoom;
+        
         return (
-            <div
+          <div
             key={node.id}
             style={{
-                position: 'absolute',
-                left: screenPos.x,
-                top: screenPos.y,
-                width: 200 * zoom,
-                height: 90 * zoom,
-                pointerEvents: 'auto',
-                zIndex: 20,
+              position: 'absolute',
+              left: screenPos.x,
+              top: screenPos.y,
+              width: screenWidth,
+              height: screenHeight,
+              pointerEvents: mode === 'edit' ? 'none' : 'auto',
+              zIndex: 20,
             }}
-            >
-            <ButtonNodeRenderer node={node} isRunning={mode === 'run'} />
-            </div>
+            className={isSelected && mode === 'edit' ? 'ring-2 ring-orange-500 rounded-lg' : ''}
+          >
+            <ButtonNodeRenderer node={node} isRunning={mode === 'run'} zoom={zoom} />
+          </div>
         );
-        })}
+      })}
     </div>
   );
 };
