@@ -47,6 +47,7 @@ export interface NodeDefinition {
   outputs: string[];
   color: string;
   config?: Record<string, any>;
+  component?: React.ComponentType<{ node: NodeType; onUpdate: (config: Record<string, any>) => void; onClose: () => void }>;
   execute?: (
     node: NodeType,
     context: Map<string, any>,
@@ -62,6 +63,7 @@ export type EditorState = {
   offsetY: number;
   zoom: number;
   selectedNodeIds: Set<number>;
+  editingNodeId: number | null;
 };
 
 export type EditorActions = {
@@ -86,4 +88,6 @@ export type EditorActions = {
   getPortAtPosition: (worldPos: Vector2) => PortHit | null;
   getNodeAtPosition: (worldPos: Vector2) => NodeType | null;
   getSelectionCount: () => number;
+  openEditor: (nodeId: number) => void;
+  closeEditor: () => void;
 };

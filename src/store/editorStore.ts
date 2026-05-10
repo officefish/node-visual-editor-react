@@ -17,11 +17,15 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   offsetY: 0,
   zoom: 1,
   selectedNodeIds: new Set<number>(),
+  editingNodeId: null,
 
   // Actions
   addNode: (type: string, x: number, y: number) => {
     const definition = NodeRegistry.get(type);
     if (!definition) return;
+
+    // Создаем копию конфига или пустой объект
+    const initialConfig = definition.config ? { ...definition.config } : {};
 
     const node: NodeType = {
       id: get().nextNodeId,
@@ -29,9 +33,9 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       title: definition.title,
       x,
       y,
-      inputs: definition.inputs.map((name: string) => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
-      outputs: definition.outputs.map((name: string) => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
-      config: definition.config || {},
+      inputs: definition.inputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
+      outputs: definition.outputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
+      config: initialConfig,
       color: definition.color,
     };
 
@@ -46,6 +50,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       nodes: state.nodes.filter(n => n.id !== nodeId),
       links: state.links.filter(l => l.fromNode !== nodeId && l.toNode !== nodeId),
       selectedNodeIds: new Set([...state.selectedNodeIds].filter(id => id !== nodeId)),
+      editingNodeId: state.editingNodeId === nodeId ? null : state.editingNodeId,
     }));
   },
 
@@ -55,6 +60,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       nodes: state.nodes.filter(n => !selectedIds.has(n.id)),
       links: state.links.filter(l => !selectedIds.has(l.fromNode) && !selectedIds.has(l.toNode)),
       selectedNodeIds: new Set(),
+      editingNodeId: state.editingNodeId && selectedIds.has(state.editingNodeId) ? null : state.editingNodeId,
     }));
   },
 
@@ -190,6 +196,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       links: data.links,
       nextNodeId: data.nextNodeId,
       selectedNodeIds: new Set(),
+      editingNodeId: null,
     });
   },
 
@@ -224,7 +231,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       for (let i = 0; i < node.inputs.length; i++) {
         const portWorldX = node.x;
         const portWorldY = node.y + PORT_TOP_OFFSET + i * PORT_SPACING;
-        if (Math.hypot(worldPos.x - portWorldX, worldPos.y - portWorldY) < PORT_RADIUS) {
+        const dx = worldPos.x - portWorldX;
+        const dy = worldPos.y - portWorldY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < PORT_RADIUS) {
           return { 
             nodeId: node.id, 
             portIndex: i, 
@@ -238,7 +248,10 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       for (let i = 0; i < node.outputs.length; i++) {
         const portWorldX = node.x + NODE_WIDTH;
         const portWorldY = node.y + PORT_TOP_OFFSET + i * PORT_SPACING;
-        if (Math.hypot(worldPos.x - portWorldX, worldPos.y - portWorldY) < PORT_RADIUS) {
+        const dx = worldPos.x - portWorldX;
+        const dy = worldPos.y - portWorldY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < PORT_RADIUS) {
           return { 
             nodeId: node.id, 
             portIndex: i, 
@@ -260,5 +273,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
       }
     }
     return null;
+  },
+
+  openEditor: (nodeId: number) => {
+    set({ editingNodeId: nodeId });
+  },
+
+  closeEditor: () => {
+    set({ editingNodeId: null });
   },
 }));

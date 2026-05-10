@@ -6,21 +6,23 @@ import { StatusBar } from './components/StatusBar';
 import { NodeExecutor } from './core/NodeExecutor';
 import { registerAllNodes } from './nodes';
 import { useEditorStore } from './store/editorStore';
+import { NodeRegistry } from './core/NodeRegistry';
 
 function App() {
   const [status, setStatus] = useState('✅ Готов');
-  const { nodes, links, zoom } = useEditorStore();
+  const { nodes, links, zoom, editingNodeId, updateNodeConfig, closeEditor } = useEditorStore();
   const [executor] = useState(() => new NodeExecutor(setStatus, () => {}));
 
   useEffect(() => {
     registerAllNodes();
     
-    // Добавляем демо-узлы, если их нет
-    const { nodes: currentNodes, addNode, screenToWorld, offsetX, offsetY, zoom } = useEditorStore.getState();
+    // Add demo nodes if empty
+    const { nodes: currentNodes, addNode, screenToWorld, offsetX, offsetY, zoom: currentZoom } = useEditorStore.getState();
     if (currentNodes.length === 0) {
-      const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2, offsetX, offsetY, zoom);
+      const center = screenToWorld(window.innerWidth / 2, window.innerHeight / 2, offsetX, offsetY, currentZoom);
       addNode('start', center.x - 100, center.y - 45);
-      addNode('console', center.x + 100, center.y - 45);
+      addNode('text', center.x + 100, center.y - 45);
+      addNode('console', center.x + 300, center.y - 45);
     }
   }, []);
 
@@ -28,19 +30,31 @@ function App() {
     await executor.execute(nodes, links);
   };
 
+  // Find editing node and its editor component
+  const editingNode = nodes.find(n => n.id === editingNodeId);
+  const EditorComponent = editingNode ? NodeRegistry.get(editingNode.type)?.component : null;
+
+  const handleNodeUpdate = (config: Record<string, any>) => {
+    if (editingNodeId !== null) {
+      updateNodeConfig(editingNodeId, config);
+    }
+  };
+
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-base-100">
-      {/* Canvas должен быть фоном */}
+    <div className="fixed inset-0 bg-base-100">
       <Canvas onStatusUpdate={setStatus} />
+      <NodesPanel onStatusUpdate={setStatus} />
+      <Toolbar onStatusUpdate={setStatus} onExecute={handleExecute} />
+      <StatusBar status={status} zoom={zoom} />
       
-      {/* UI элементы поверх канваса */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="pointer-events-auto">
-          <NodesPanel onStatusUpdate={setStatus} />
-          <Toolbar onStatusUpdate={setStatus} onExecute={handleExecute} />
-          <StatusBar status={status} zoom={zoom} />
-        </div>
-      </div>
+      {/* Node Editor Modal */}
+      {editingNode && EditorComponent && (
+        <EditorComponent
+          node={editingNode}
+          onUpdate={handleNodeUpdate}
+          onClose={closeEditor}
+        />
+      )}
     </div>
   );
 }

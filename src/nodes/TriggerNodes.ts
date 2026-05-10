@@ -1,5 +1,4 @@
 import { NodeRegistry } from '../core/NodeRegistry';
-import type { NodeType } from '../types';
 
 export function registerTriggerNodes() {
   NodeRegistry.register('start', {
@@ -8,6 +7,7 @@ export function registerTriggerNodes() {
     outputs: ['flow'],
     color: '#27ae60',
     execute: async () => {
+      console.log('[Start] Триггер запущен');
       return { flow: true };
     },
   });
@@ -19,6 +19,7 @@ export function registerTriggerNodes() {
     color: '#27ae60',
     config: { interval: 1000 },
     execute: async () => {
+      console.log('[Timer] Тик таймера');
       return { flow: true };
     },
   });
@@ -29,6 +30,7 @@ export function registerTriggerNodes() {
     outputs: ['flow', 'data'],
     color: '#27ae60',
     execute: async () => {
+      console.log('[HTTP] Обработка запроса');
       return { flow: true, data: { method: 'GET', url: '/' } };
     },
   });

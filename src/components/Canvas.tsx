@@ -25,6 +25,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
     getPortAtPosition,
     screenToWorld,
     worldToScreen,
+    openEditor,
   } = useEditorStore();
 
   useKeyboard();
@@ -40,7 +41,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
   const [highlightedNodeId, setHighlightedNodeId] = useState<number | null>(null);
 
   const rendererRef = useRef<NodeRenderer | null>(null);
-  const animationRef = useRef<number>(0);
+  const animationRef = useRef<number>();
 
   // Initialize renderer
   useEffect(() => {
@@ -70,6 +71,20 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
       }
     };
   }, [nodes, links, selectedNodeIds, highlightedNodeId, offsetX, offsetY, zoom]);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mouseScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const worldPos = screenToWorld(mouseScreen.x, mouseScreen.y, offsetX, offsetY, zoom);
+
+    const node = getNodeAtPosition(worldPos);
+    if (node) {
+      openEditor(node.id);
+      onStatusUpdate(`✏️ Редактирование узла: ${node.title}`);
+    }
+  }, [offsetX, offsetY, zoom, screenToWorld, getNodeAtPosition, openEditor, onStatusUpdate]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!canvasRef.current) return;
@@ -123,10 +138,10 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
 
         if (e.ctrlKey) {
           selectNode(node.id, true);
-          onStatusUpdate(`Добавлен узел ${node.id} к выделению`);
+          onStatusUpdate(`➕ Добавлен узел ${node.id} к выделению`);
         } else {
           selectNode(node.id, false);
-          onStatusUpdate(`Выделен узел: ${node.title}`);
+          onStatusUpdate(`🎯 Выделен узел: ${node.title}`);
         }
         return;
       }
@@ -219,6 +234,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
+      onDoubleClick={handleDoubleClick}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       style={{ display: 'block' }}

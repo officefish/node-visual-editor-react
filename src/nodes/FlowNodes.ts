@@ -7,8 +7,9 @@ export function registerFlowNodes() {
     inputs: ['flow', 'condition'],
     outputs: ['true', 'false'],
     color: '#e67e22',
-    execute: async (node: NodeType, context: Map<string, any>, inputs: Record<string, any>) => {
+    execute: async (_node: NodeType, _context: Map<string, any>, inputs: Record<string, any>) => {
       const condition = inputs.condition || false;
+      console.log(`[If] Условие: ${condition} → ${condition ? 'true' : 'false'}`);
       return { [condition ? 'true' : 'false']: true };
     },
   });
@@ -18,8 +19,10 @@ export function registerFlowNodes() {
     inputs: ['flow'],
     outputs: ['flow'],
     color: '#e67e22',
-    config: { condition: 'i < 5', varName: 'i' },
-    execute: async () => {
+    config: { iterations: 5 },
+    execute: async (node: NodeType) => {
+      const iterations = node.config.iterations || 5;
+      console.log(`[Loop] Запуск цикла на ${iterations} итераций`);
       return { flow: true };
     },
   });
@@ -30,6 +33,7 @@ export function registerFlowNodes() {
     outputs: ['flow'],
     color: '#e67e22',
     execute: async () => {
+      console.log('[Sequence] Выполнение последовательности');
       return { flow: true };
     },
   });

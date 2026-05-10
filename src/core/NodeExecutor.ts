@@ -1,10 +1,10 @@
-import type { NodeType, Link,
-    // ExecutionContext 
-    } from '../types';
+import type { NodeType, Link } from '../types';
 import { NodeRegistry } from './NodeRegistry';
 
+type ExecutionContext = Map<string, any>;
+
 export class NodeExecutor {
-  private context: Map<string, any> = new Map();
+  private context: ExecutionContext = new Map();
   private onStatusUpdate?: (message: string) => void;
   private onNodeHighlight?: (nodeId: number | null) => void;
 
@@ -73,7 +73,7 @@ export class NodeExecutor {
       }
     }
 
-    // Continue execution
+    // Continue execution through flow ports
     const outgoingLinks = links.filter(l => l.fromNode === nodeId);
     for (const link of outgoingLinks) {
       if (node.outputs[link.fromPort]?.type === 'flow') {
