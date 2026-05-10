@@ -19,11 +19,11 @@ export function registerFunctionNodes() {
     inputs: ['flow'],
     outputs: ['flow', 'result'],
     color: '#3498db',
-    config: { text: '' },
+    config: { text: 'Привет, мир!' },
     component: TextNodeEditor,
     execute: async (node: NodeType, _context: Map<string, any>, _inputs: Record<string, any>) => {
       const text = node.config.text || '';
-      console.log(`[Text Node] Вывод: ${text}`);
+      console.log(`[Text] Вывод текста: "${text}"`);
       return { flow: true, result: text };
     },
   });
@@ -33,7 +33,7 @@ export function registerFunctionNodes() {
     inputs: [],
     outputs: ['value'],
     color: '#9b59b6',
-    config: { value: 0, type: 'number' },
+    config: { value: 42, type: 'number' },
     component: ConstantNodeEditor,
     execute: async (node: NodeType) => {
       let value = node.config.value;
@@ -87,7 +87,7 @@ export function registerFunctionNodes() {
   NodeRegistry.register('variable', {
     title: '📦 Переменная',
     inputs: ['flow', 'value'],
-    outputs: ['flow', 'value'],
+    outputs: ['flow'],
     color: '#3498db',
     config: { action: 'set', varName: 'myVar' },
     execute: async (node: NodeType, context: Map<string, any>, inputs: Record<string, any>) => {

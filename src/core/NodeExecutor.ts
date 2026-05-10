@@ -16,20 +16,11 @@ export class NodeExecutor {
     this.onNodeHighlight = onNodeHighlight;
   }
 
-  async execute(nodes: NodeType[], links: Link[]) {
+  // Запуск выполнения от конкретного узла-триггера
+  async executeFromNode(startNodeId: number, nodes: NodeType[], links: Link[]) {
     this.context.clear();
-    this.onStatusUpdate?.('🚀 Запуск выполнения...');
-
-    const startNodes = nodes.filter(n => n.type === 'start');
-    if (startNodes.length === 0) {
-      this.onStatusUpdate?.('❌ Нет стартового узла! Добавьте Start Trigger');
-      return;
-    }
-
-    for (const startNode of startNodes) {
-      await this.executeNode(startNode.id, nodes, links, new Set());
-    }
-
+    this.onStatusUpdate?.(`🚀 Запуск выполнения от триггера...`);
+    await this.executeNode(startNodeId, nodes, links, new Set());
     this.onStatusUpdate?.('✅ Выполнение завершено!');
   }
 

@@ -1,12 +1,20 @@
 import { create } from 'zustand';
-import type { EditorState, EditorActions, Rect, Vector2, PortHit, NodeType, Link } from '../types';
+import type { EditorState, EditorActions, Rect, Vector2, PortHit, NodeType, Link, EditorMode } from '../types';
 import { NodeRegistry } from '../core/NodeRegistry';
+import type { NodeExecutor } from '../core/NodeExecutor';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 90;
 const PORT_RADIUS = 7;
 const PORT_TOP_OFFSET = 30;
 const PORT_SPACING = 22;
+
+// Глобальная переменная для executor
+let globalExecutor: NodeExecutor | null = null;
+
+export const setGlobalExecutor = (executor: NodeExecutor) => {
+  globalExecutor = executor;
+};
 
 export const useEditorStore = create<EditorState & EditorActions>((set, get) => ({
   // State
@@ -18,13 +26,13 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   zoom: 1,
   selectedNodeIds: new Set<number>(),
   editingNodeId: null,
+  mode: 'edit', // 'edit' или 'run'
 
   // Actions
   addNode: (type: string, x: number, y: number) => {
     const definition = NodeRegistry.get(type);
     if (!definition) return;
 
-    // Создаем копию конфига или пустой объект
     const initialConfig = definition.config ? { ...definition.config } : {};
 
     const node: NodeType = {
@@ -107,7 +115,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     
     if (!fromNodeObj || !toNodeObj) return false;
     
-    // Remove existing link to the same input port
     const existingIndex = get().links.findIndex(l => l.toNode === toNode && l.toPort === toPort);
     let newLinks = [...get().links];
     if (existingIndex !== -1) {
@@ -227,7 +234,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     const nodes = get().nodes;
     
     for (const node of nodes) {
-      // Input ports
       for (let i = 0; i < node.inputs.length; i++) {
         const portWorldX = node.x;
         const portWorldY = node.y + PORT_TOP_OFFSET + i * PORT_SPACING;
@@ -244,7 +250,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         }
       }
       
-      // Output ports
       for (let i = 0; i < node.outputs.length; i++) {
         const portWorldX = node.x + NODE_WIDTH;
         const portWorldY = node.y + PORT_TOP_OFFSET + i * PORT_SPACING;
@@ -281,5 +286,33 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
   closeEditor: () => {
     set({ editingNodeId: null });
+  },
+
+  setMode: (mode: EditorMode) => {
+    set({ mode });
+  },
+
+  executeButtonTrigger: async (buttonNodeId: number) => {
+    const { nodes, links, mode } = get();
+    
+    if (mode !== 'run') {
+      console.log('[Button] Режим редактирования - триггер не активен');
+      return;
+    }
+    
+    const buttonNode = nodes.find(n => n.id === buttonNodeId);
+    if (!buttonNode || buttonNode.type !== 'button') {
+      console.log('[Button] Узел не является кнопкой');
+      return;
+    }
+    
+    console.log(`[Button] Запуск выполнения от триггера: ${buttonNode.config.text || buttonNode.title}`);
+    
+    if (!globalExecutor) {
+      console.error('[Button] Executor не инициализирован');
+      return;
+    }
+    
+    await globalExecutor.executeFromNode(buttonNodeId, nodes, links);
   },
 }));

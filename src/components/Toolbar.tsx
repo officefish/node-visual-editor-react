@@ -1,14 +1,13 @@
 import React from 'react';
 import { useEditorStore } from '../store/editorStore';
-import { Trash2, Save, FolderOpen, Play, Download, Eraser } from 'lucide-react';
+import { Trash2, Save, FolderOpen, Play, Download, Eraser, Edit } from 'lucide-react';
 
 interface ToolbarProps {
   onStatusUpdate: (message: string) => void;
-  onExecute: () => void;
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ onStatusUpdate, onExecute }) => {
-  const { deleteSelectedNodes, getData, loadData, clearSelection, getSelectionCount, nodes, links, nextNodeId } = useEditorStore();
+export const Toolbar: React.FC<ToolbarProps> = ({ onStatusUpdate }) => {
+  const { deleteSelectedNodes, getData, loadData, clearSelection, getSelectionCount, mode, setMode } = useEditorStore();
 
   const handleClear = () => {
     if (confirm('Очистить всё?')) {
@@ -57,55 +56,83 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onStatusUpdate, onExecute }) =
     }
   };
 
+  const handleModeToggle = () => {
+    if (mode === 'edit') {
+      setMode('run');
+      onStatusUpdate('▶️ Режим выполнения активирован. Нажмите на кнопку-триггер для запуска сценария');
+    } else {
+      setMode('edit');
+      onStatusUpdate('✏️ Режим редактирования активирован');
+    }
+  };
+
   return (
     <div className="fixed top-4 right-4 flex gap-2 z-50">
+      {mode === 'edit' ? (
+        <>
+          <button 
+            onClick={handleClear} 
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+            title="Очистить всё"
+          >
+            <Eraser size={16} />
+            Очистить
+          </button>
+          <button 
+            onClick={handleSave} 
+            className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+            title="Сохранить в localStorage"
+          >
+            <Save size={16} />
+            Сохранить
+          </button>
+          <button 
+            onClick={handleLoad} 
+            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+            title="Загрузить из localStorage"
+          >
+            <FolderOpen size={16} />
+            Загрузить
+          </button>
+          <button 
+            onClick={handleExport} 
+            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+            title="Экспортировать в JSON файл"
+          >
+            <Download size={16} />
+            Экспорт
+          </button>
+          <button 
+            onClick={handleDeleteSelected} 
+            className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg"
+            title="Удалить выделенные узлы (Delete)"
+          >
+            <Trash2 size={16} />
+            Удалить
+          </button>
+        </>
+      ) : null}
+      
       <button 
-        onClick={handleClear} 
-        className="btn btn-error btn-sm gap-2"
-        title="Очистить всё"
+        onClick={handleModeToggle}
+        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 shadow-lg ${
+          mode === 'edit' 
+            ? 'bg-green-600 hover:bg-green-700' 
+            : 'bg-orange-600 hover:bg-orange-700'
+        }`}
+        title={mode === 'edit' ? 'Перейти в режим выполнения' : 'Вернуться в режим редактирования'}
       >
-        <Eraser size={16} />
-        Очистить
-      </button>
-      <button 
-        onClick={handleSave} 
-        className="btn btn-success btn-sm gap-2"
-        title="Сохранить в localStorage"
-      >
-        <Save size={16} />
-        Сохранить
-      </button>
-      <button 
-        onClick={handleLoad} 
-        className="btn btn-info btn-sm gap-2"
-        title="Загрузить из localStorage"
-      >
-        <FolderOpen size={16} />
-        Загрузить
-      </button>
-      <button 
-        onClick={handleExport} 
-        className="btn btn-secondary btn-sm gap-2"
-        title="Экспортировать в JSON файл"
-      >
-        <Download size={16} />
-        Экспорт
-      </button>
-      <button 
-        onClick={onExecute} 
-        className="btn btn-warning btn-sm gap-2"
-        title="Выполнить программу"
-      >
-        <Play size={16} />
-        Выполнить
-      </button>
-      <button 
-        onClick={handleDeleteSelected} 
-        className="btn btn-error btn-sm gap-2"
-        title="Удалить выделенные узлы (Delete)"
-      >
-        <Trash2 size={16} />
-        Удалить выбранные
+        {mode === 'edit' ? (
+          <>
+            <Play size={16} />
+            Выполнить
+          </>
+        ) : (
+          <>
+            <Edit size={16} />
+            Редактировать
+          </>
+        )}
       </button>
     </div>
   );

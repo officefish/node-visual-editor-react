@@ -4,6 +4,7 @@ import { useEditor } from '../hooks/useEditor';
 import { useKeyboard } from '../hooks/useKeyboard';
 import { NodeRenderer } from '../core/NodeRenderer';
 import type { PortHit } from '../types';
+import { ButtonNodeRenderer } from '../nodes/ButtonNode';
 
 interface CanvasProps {
   onStatusUpdate: (message: string) => void;
@@ -26,6 +27,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
     screenToWorld,
     worldToScreen,
     openEditor,
+    mode,
   } = useEditorStore();
 
   useKeyboard();
@@ -42,6 +44,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
 
   const rendererRef = useRef<NodeRenderer | null>(null);
   const animationRef = useRef<number>();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Initialize renderer
   useEffect(() => {
@@ -73,6 +76,11 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
   }, [nodes, links, selectedNodeIds, highlightedNodeId, offsetX, offsetY, zoom]);
 
   const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode === 'run') {
+      onStatusUpdate('⚠️ В режиме выполнения редактирование недоступно');
+      return;
+    }
+    
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -80,20 +88,25 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
     const worldPos = screenToWorld(mouseScreen.x, mouseScreen.y, offsetX, offsetY, zoom);
 
     const node = getNodeAtPosition(worldPos);
-    if (node) {
+    if (node && node.type !== 'button') {
       openEditor(node.id);
       onStatusUpdate(`✏️ Редактирование узла: ${node.title}`);
+    } else if (node && node.type === 'button') {
+      onStatusUpdate(`🔘 Узел-триггер не требует редактирования`);
     }
-  }, [offsetX, offsetY, zoom, screenToWorld, getNodeAtPosition, openEditor, onStatusUpdate]);
+  }, [offsetX, offsetY, zoom, screenToWorld, getNodeAtPosition, openEditor, onStatusUpdate, mode]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode === 'run') {
+      return;
+    }
+    
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
     const mouseScreen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const worldPos = screenToWorld(mouseScreen.x, mouseScreen.y, offsetX, offsetY, zoom);
 
-    // Right click - panning
     if (e.button === 2) {
       e.preventDefault();
       setIsPanning(true);
@@ -102,9 +115,7 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
       return;
     }
 
-    // Left click
     if (e.button === 0) {
-      // Check port click
       const portHit = getPortAtPosition(worldPos);
       if (portHit) {
         if (selectedPort === null) {
@@ -127,7 +138,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
         return;
       }
 
-      // Check node click
       const node = getNodeAtPosition(worldPos);
       if (node) {
         setDraggedNode({
@@ -146,7 +156,6 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
         return;
       }
 
-      // Start rectangle selection
       if (!selectedPort && !draggedNode) {
         setIsSelecting(true);
         setSelectionStart(worldPos);
@@ -156,9 +165,10 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
         }
       }
     }
-  }, [offsetX, offsetY, zoom, screenToWorld, getPortAtPosition, selectedPort, addLink, onStatusUpdate, getNodeAtPosition, selectNode, clearSelection]);
+  }, [offsetX, offsetY, zoom, screenToWorld, getPortAtPosition, selectedPort, addLink, onStatusUpdate, getNodeAtPosition, selectNode, clearSelection, mode]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode === 'run') return;
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -179,16 +189,17 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
       const worldPos = screenToWorld(mouseScreen.x, mouseScreen.y, offsetX, offsetY, zoom);
       setSelectionEnd(worldPos);
       
-      // Draw selection rectangle in real-time
       if (rendererRef.current) {
         const startScreen = worldToScreen(selectionStart.x, selectionStart.y, offsetX, offsetY, zoom);
         const endScreen = worldToScreen(worldPos.x, worldPos.y, offsetX, offsetY, zoom);
         rendererRef.current.drawSelectionRect(startScreen, endScreen);
       }
     }
-  }, [isPanning, startOffset, panStart, draggedNode, isSelecting, offsetX, offsetY, zoom, screenToWorld, updateNodePosition, worldToScreen, selectionStart]);
+  }, [isPanning, startOffset, panStart, draggedNode, isSelecting, offsetX, offsetY, zoom, screenToWorld, updateNodePosition, worldToScreen, selectionStart, mode]);
 
   const handleMouseUp = useCallback(() => {
+    if (mode === 'run') return;
+    
     if (isSelecting) {
       const rect = {
         x: Math.min(selectionStart.x, selectionEnd.x),
@@ -206,13 +217,15 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
 
     setIsPanning(false);
     setDraggedNode(null);
-  }, [isSelecting, selectionStart, selectionEnd, selectNodesInRect, onStatusUpdate]);
+  }, [isSelecting, selectionStart, selectionEnd, selectNodesInRect, onStatusUpdate, mode]);
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    if (mode === 'run') return;
     e.preventDefault();
   };
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (mode === 'run') return;
     if (!canvasRef.current) return;
 
     const rect = canvasRef.current.getBoundingClientRect();
@@ -225,19 +238,50 @@ export const Canvas: React.FC<CanvasProps> = ({ onStatusUpdate }) => {
         onStatusUpdate('🗑️ Соединение удалено');
       }
     }
-  }, [offsetX, offsetY, zoom, screenToWorld, removeLinkAtPosition, onStatusUpdate]);
+  }, [offsetX, offsetY, zoom, screenToWorld, removeLinkAtPosition, onStatusUpdate, mode]);
+
+  // Get button nodes for rendering
+  const buttonNodes = nodes.filter(node => node.type === 'button');
+  
+  // Transform world coordinates to screen for button positioning
+  const getButtonScreenPosition = (worldX: number, worldY: number) => {
+    return worldToScreen(worldX, worldY, offsetX, offsetY, zoom);
+  };
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onDoubleClick={handleDoubleClick}
-      onClick={handleClick}
-      onContextMenu={handleContextMenu}
-      style={{ display: 'block' }}
-    />
+    <div ref={containerRef} className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        style={{ display: 'block', cursor: mode === 'run' ? 'default' : 'grab' }}
+      />
+      
+      {/* Render button nodes as interactive HTML elements */}
+        {buttonNodes.map(node => {
+        const screenPos = getButtonScreenPosition(node.x, node.y);
+        return (
+            <div
+            key={node.id}
+            style={{
+                position: 'absolute',
+                left: screenPos.x,
+                top: screenPos.y,
+                width: 200 * zoom,
+                height: 90 * zoom,
+                pointerEvents: 'auto',
+                zIndex: 20,
+            }}
+            >
+            <ButtonNodeRenderer node={node} isRunning={mode === 'run'} />
+            </div>
+        );
+        })}
+    </div>
   );
 };

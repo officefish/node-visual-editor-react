@@ -1,3 +1,5 @@
+import type { ComponentType } from 'react';
+
 export interface Vector2 {
   x: number;
   y: number;
@@ -47,13 +49,15 @@ export interface NodeDefinition {
   outputs: string[];
   color: string;
   config?: Record<string, any>;
-  component?: React.ComponentType<{ node: NodeType; onUpdate: (config: Record<string, any>) => void; onClose: () => void }>;
+  component?: ComponentType<{ node: NodeType; onUpdate: (config: Record<string, any>) => void; onClose: () => void }>;
   execute?: (
     node: NodeType,
     context: Map<string, any>,
     inputs: Record<string, any>
   ) => Promise<Record<string, any>>;
 }
+
+export type EditorMode = 'edit' | 'run';
 
 export type EditorState = {
   nodes: NodeType[];
@@ -64,6 +68,7 @@ export type EditorState = {
   zoom: number;
   selectedNodeIds: Set<number>;
   editingNodeId: number | null;
+  mode: EditorMode;
 };
 
 export type EditorActions = {
@@ -90,4 +95,6 @@ export type EditorActions = {
   getSelectionCount: () => number;
   openEditor: (nodeId: number) => void;
   closeEditor: () => void;
+  setMode: (mode: EditorMode) => void;
+  executeButtonTrigger: (buttonNodeId: number) => Promise<void>;
 };
