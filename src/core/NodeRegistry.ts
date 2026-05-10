@@ -3,7 +3,7 @@ import type { NodeDefinition } from '../types';
 class NodeRegistryClass {
   private nodes: Map<string, NodeDefinition> = new Map();
 
-  register(type: string, definition: NodeDefinition) {
+  register(type: string, definition: NodeDefinition): void {
     this.nodes.set(type, definition);
   }
 
@@ -12,11 +12,15 @@ class NodeRegistryClass {
   }
 
   getAll(): Map<string, NodeDefinition> {
-    return this.nodes;
+    return new Map(this.nodes);
   }
 
   getTypes(): string[] {
     return Array.from(this.nodes.keys());
+  }
+  
+  has(type: string): boolean {
+    return this.nodes.has(type);
   }
 }
 

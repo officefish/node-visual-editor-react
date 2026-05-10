@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { EditorState, EditorActions, Rect, Vector2, PortHit, NodeType, Link, EditorMode } from '../types';
 import { NodeRegistry } from '../core/NodeRegistry';
 import type { NodeExecutor } from '../core/NodeExecutor';
+import { NodeFactory } from '../core/NodeFactory';
 
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 90;
@@ -30,28 +31,56 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
   // Actions
   addNode: (type: string, x: number, y: number) => {
+    // Сначала проверяем в старом реестре
     const definition = NodeRegistry.get(type);
-    if (!definition) return;
+    if (definition) {
+        const initialConfig = definition.config ? { ...definition.config } : {};
+        
+        const node: NodeType = {
+        id: get().nextNodeId,
+        type,
+        title: definition.title,
+        x,
+        y,
+        inputs: definition.inputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
+        outputs: definition.outputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
+        config: initialConfig,
+        color: definition.color,
+        };
 
-    const initialConfig = definition.config ? { ...definition.config } : {};
-
-    const node: NodeType = {
-      id: get().nextNodeId,
-      type,
-      title: definition.title,
-      x,
-      y,
-      inputs: definition.inputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
-      outputs: definition.outputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
-      config: initialConfig,
-      color: definition.color,
-    };
-
-    set(state => ({
-      nodes: [...state.nodes, node],
-      nextNodeId: state.nextNodeId + 1,
-    }));
-  },
+        set(state => ({
+        nodes: [...state.nodes, node],
+        nextNodeId: state.nextNodeId + 1,
+        }));
+        return;
+    }
+    
+    // Если не нашли в старом реестре, пробуем создать кастомный узел
+    const customNode = NodeFactory.create(type);
+    if (customNode) {
+        // Безопасно получаем цвет и иконку
+        const nodeColor = customNode.getColor ? customNode.getColor() : '#6b7280';
+        
+        const node: NodeType = {
+        id: get().nextNodeId,
+        type,
+        title: customNode.title,
+        x,
+        y,
+        inputs: customNode.getInputs().map(p => ({ name: p.name, type: p.type === 'flow' ? 'flow' : 'data' })),
+        outputs: customNode.getOutputs().map(p => ({ name: p.name, type: p.type === 'flow' ? 'flow' : 'data' })),
+        config: customNode.getDefaultConfig(),
+        color: nodeColor,
+        };
+        set(state => ({
+        nodes: [...state.nodes, node],
+        nextNodeId: state.nextNodeId + 1,
+        }));
+        return;
+    }
+    
+    console.warn(`Node type "${type}" not found in any registry`);
+    },
 
   deleteNode: (nodeId: number) => {
     set(state => ({
