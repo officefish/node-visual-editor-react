@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { NodeType } from '../types';
+import { useEditorStore } from '../store/editorStore';
 import { X, Save } from 'lucide-react';
 
 interface NodeEditorProps {
@@ -10,10 +11,24 @@ interface NodeEditorProps {
 
 export const TextNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose }) => {
   const [text, setText] = useState(node.config?.text || '');
+  const [isGetter, setIsGetter] = useState(node.isGetter || false);
+  const { updateNodeGetter } = useEditorStore();
 
   const handleSave = () => {
+    // Обновляем конфиг
     onUpdate({ text });
+    // Обновляем режим Getter
+    if (isGetter !== node.isGetter) {
+      updateNodeGetter(node.id, isGetter);
+    }
     onClose();
+  };
+
+  const handleGetterChange = (checked: boolean) => {
+    setIsGetter(checked);
+    if (checked) {
+      alert('В режиме Getter узел перестанет участвовать в потоке выполнения и будет только источником данных');
+    }
   };
 
   return (
@@ -25,17 +40,33 @@ export const TextNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onCl
             <X size={20} />
           </button>
         </div>
-        <div className="p-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Текст:
-          </label>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 transition resize-none"
-            rows={6}
-            placeholder="Введите текст..."
-          />
+        <div className="p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Текст:
+            </label>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 transition resize-none"
+              rows={6}
+              placeholder="Введите текст..."
+            />
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isGetter}
+                onChange={(e) => handleGetterChange(e.target.checked)}
+                className="w-4 h-4 accent-purple-500"
+              />
+              <span className="text-sm text-gray-300">Getter (только источник данных)</span>
+            </label>
+            <div className="text-xs text-gray-400">
+              {isGetter ? 'Узел не участвует в потоке выполнения, только отдаёт значение' : 'Узел участвует в потоке выполнения'}
+            </div>
+          </div>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-gray-700">
           <button
@@ -60,6 +91,8 @@ export const TextNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onCl
 export const ConstantNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, onClose }) => {
   const [value, setValue] = useState(node.config?.value ?? 0);
   const [type, setType] = useState(node.config?.type || 'number');
+  const [isGetter, setIsGetter] = useState(node.isGetter || false);
+  const { updateNodeGetter } = useEditorStore();
 
   const handleSave = () => {
     let parsedValue = value;
@@ -69,7 +102,17 @@ export const ConstantNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, 
       parsedValue = value === 'true';
     }
     onUpdate({ value: parsedValue, type });
+    if (isGetter !== node.isGetter) {
+      updateNodeGetter(node.id, isGetter);
+    }
     onClose();
+  };
+
+  const handleGetterChange = (checked: boolean) => {
+    setIsGetter(checked);
+    if (checked) {
+      alert('В режиме Getter узел перестанет участвовать в потоке выполнения и будет только источником данных');
+    }
   };
 
   return (
@@ -117,6 +160,20 @@ export const ConstantNodeEditor: React.FC<NodeEditorProps> = ({ node, onUpdate, 
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-purple-500 transition"
               />
             )}
+          </div>
+          <div className="flex items-center gap-3 p-3 bg-gray-700/50 rounded-lg">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isGetter}
+                onChange={(e) => handleGetterChange(e.target.checked)}
+                className="w-4 h-4 accent-purple-500"
+              />
+              <span className="text-sm text-gray-300">Getter (только источник данных)</span>
+            </label>
+            <div className="text-xs text-gray-400">
+              {isGetter ? 'Узел не участвует в потоке выполнения, только отдаёт значение' : 'Узел участвует в потоке выполнения'}
+            </div>
           </div>
         </div>
         <div className="flex justify-end gap-2 p-4 border-t border-gray-700">

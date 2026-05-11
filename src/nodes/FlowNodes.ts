@@ -4,8 +4,8 @@ import type { NodeType } from '../types';
 export function registerFlowNodes() {
   NodeRegistry.register('if', {
     title: '🔀 If / Else',
-    inputs: ['flow', 'condition'],
-    outputs: ['true', 'false'],
+    inputs: ['flow', 'condition'],   // порт 0: flow, порт 1: condition
+    outputs: ['true', 'false'],      // порт 0: true, порт 1: false (оба flow)
     color: '#e67e22',
     execute: async (_node: NodeType, _context: Map<string, any>, inputs: Record<string, any>) => {
       const condition = inputs.condition || false;
@@ -16,8 +16,8 @@ export function registerFlowNodes() {
 
   NodeRegistry.register('loop', {
     title: '🔄 Loop',
-    inputs: ['flow'],
-    outputs: ['flow'],
+    inputs: ['flow'],                // порт 0: flow
+    outputs: ['flow'],               // порт 0: flow
     color: '#e67e22',
     config: { iterations: 5 },
     execute: async (node: NodeType) => {

@@ -1,16 +1,14 @@
 import { NodeRegistry } from '../core/NodeRegistry';
-import type { NodeType } from '../types';
 
 export function registerTriggerNodes() {
-
   NodeRegistry.register('button', {
     title: '🔘 Button Trigger',
-    inputs: [],
-    outputs: ['flow'],
+    inputs: [],                      // нет входов
+    outputs: ['flow'],               // порт 0: flow
     color: '#e67e22',
     config: { text: 'Запустить сценарий' },
-    execute: async (node: NodeType, _context: Map<string, any>, _inputs: Record<string, any>) => {
-      console.log(`[Button Trigger] Запуск сценария от кнопки: ${node.config.text || node.title}`);
+    execute: async () => {
+      console.log('[Button Trigger] Выполнение триггера');
       return { flow: true };
     },
   });

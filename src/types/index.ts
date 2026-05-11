@@ -27,6 +27,7 @@ export interface NodeType {
   outputs: Port[];
   config: Record<string, any>;
   color: string;
+  isGetter?: boolean; // Если true - узел только источник данных, не участвует в потоке
 }
 
 export interface Link {
@@ -34,6 +35,18 @@ export interface Link {
   fromPort: number;
   toNode: number;
   toPort: number;
+}
+
+export interface DraggedLink {
+  fromNodeId: number;
+  fromPortIndex: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  isValid: boolean;
+  targetNodeId?: number;
+  targetPortIndex?: number;
 }
 
 export interface PortHit {
@@ -69,6 +82,8 @@ export type EditorState = {
   selectedNodeIds: Set<number>;
   editingNodeId: number | null;
   mode: EditorMode;
+  selectedLinkIndex: number | null;
+  draggedLink: DraggedLink | null;
 };
 
 export type EditorActions = {
@@ -97,4 +112,13 @@ export type EditorActions = {
   closeEditor: () => void;
   setMode: (mode: EditorMode) => void;
   executeButtonTrigger: (buttonNodeId: number) => Promise<void>;
+  updateNodeGetter: (nodeId: number, isGetter: boolean) => void;
+
+  selectLink: (linkIndex: number) => void;
+  clearSelectedLink: () => void;
+  deleteSelectedLink: () => void;
+  startDraggingLink: (fromNodeId: number, fromPortIndex: number, startX: number, startY: number) => void;
+  updateDraggedLink: (currentX: number, currentY: number, targetPort?: PortHit) => void;
+  endDraggingLink: () => void;
+  canConnect: (fromNodeId: number, fromPortIndex: number, toNodeId: number, toPortIndex: number) => boolean;
 };

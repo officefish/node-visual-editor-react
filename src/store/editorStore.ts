@@ -28,9 +28,12 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
   selectedNodeIds: new Set<number>(),
   editingNodeId: null,
   mode: 'edit', // 'edit' или 'run'
+  selectedLinkIndex: null,
+  draggedLink: null,
+
 
   // Actions
-  addNode: (type: string, x: number, y: number) => {
+    addNode: (type: string, x: number, y: number) => {
     // Сначала проверяем в старом реестре
     const definition = NodeRegistry.get(type);
     if (definition) {
@@ -46,6 +49,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         outputs: definition.outputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' })),
         config: initialConfig,
         color: definition.color,
+        isGetter: false,
         };
 
         set(state => ({
@@ -58,7 +62,6 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     // Если не нашли в старом реестре, пробуем создать кастомный узел
     const customNode = NodeFactory.create(type);
     if (customNode) {
-        // Безопасно получаем цвет и иконку
         const nodeColor = customNode.getColor ? customNode.getColor() : '#6b7280';
         
         const node: NodeType = {
@@ -71,6 +74,7 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
         outputs: customNode.getOutputs().map(p => ({ name: p.name, type: p.type === 'flow' ? 'flow' : 'data' })),
         config: customNode.getDefaultConfig(),
         color: nodeColor,
+        isGetter: false,
         };
         set(state => ({
         nodes: [...state.nodes, node],
@@ -212,10 +216,62 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
 
   updateNodeConfig: (nodeId: number, config: Record<string, any>) => {
     set(state => ({
-      nodes: state.nodes.map(node =>
+        nodes: state.nodes.map(node =>
         node.id === nodeId ? { ...node, config: { ...node.config, ...config } } : node
-      ),
+        ),
     }));
+    },
+
+   updateNodeGetter: (nodeId: number, isGetter: boolean) => {
+    set(state => {
+        const node = state.nodes.find(n => n.id === nodeId);
+        if (!node) return state;
+        
+        let newInputs = [...node.inputs];
+        let newOutputs = [...node.outputs];
+        
+        if (isGetter) {
+        // Удаляем flow порты (оставляем только data порты)
+        newInputs = node.inputs.filter(p => p.type !== 'flow');
+        newOutputs = node.outputs.filter(p => p.type !== 'flow');
+        } else {
+        // Восстанавливаем исходные порты из registry
+        const definition = NodeRegistry.get(node.type);
+        if (definition) {
+            newInputs = definition.inputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' }));
+            newOutputs = definition.outputs.map(name => ({ name, type: name === 'flow' ? 'flow' : 'data' }));
+        }
+        }
+        
+        // Удаляем все связи, связанные с удалёнными flow портами
+        let newLinks = [...state.links];
+        if (isGetter) {
+        // Удаляем связи, где этот узел участвует через flow порты
+        newLinks = state.links.filter(link => {
+            const fromNode = state.nodes.find(n => n.id === link.fromNode);
+            const toNode = state.nodes.find(n => n.id === link.toNode);
+            
+            // Проверяем связь от этого узла через flow порт
+            if (link.fromNode === nodeId) {
+            const fromPort = node.outputs[link.fromPort];
+            if (fromPort && fromPort.type === 'flow') return false;
+            }
+            // Проверяем связь к этому узлу через flow порт
+            if (link.toNode === nodeId) {
+            const toPort = node.inputs[link.toPort];
+            if (toPort && toPort.type === 'flow') return false;
+            }
+            return true;
+        });
+        }
+        
+        return {
+        nodes: state.nodes.map(n =>
+            n.id === nodeId ? { ...n, inputs: newInputs, outputs: newOutputs, isGetter } : n
+        ),
+        links: newLinks,
+        };
+    });
   },
 
   setPan: (offsetX: number, offsetY: number) => {
@@ -321,27 +377,138 @@ export const useEditorStore = create<EditorState & EditorActions>((set, get) => 
     set({ mode });
   },
 
-  executeButtonTrigger: async (buttonNodeId: number) => {
+ executeButtonTrigger: async (buttonNodeId: number) => {
     const { nodes, links, mode } = get();
     
     if (mode !== 'run') {
-      console.log('[Button] Режим редактирования - триггер не активен');
-      return;
+        console.log('[Button] Режим редактирования - триггер не активен');
+        return;
     }
     
     const buttonNode = nodes.find(n => n.id === buttonNodeId);
     if (!buttonNode || buttonNode.type !== 'button') {
-      console.log('[Button] Узел не является кнопкой');
-      return;
+        console.log('[Button] Узел не является кнопкой');
+        return;
     }
     
     console.log(`[Button] Запуск выполнения от триггера: ${buttonNode.config.text || buttonNode.title}`);
     
     if (!globalExecutor) {
-      console.error('[Button] Executor не инициализирован');
-      return;
+        console.error('[Button] Executor не инициализирован');
+        return;
     }
     
+    // Выводим информацию о связях перед выполнением
+    console.log('[Button] Текущие связи:', links.map(l => ({
+        from: nodes.find(n => n.id === l.fromNode)?.title,
+        fromPort: l.fromPort,
+        to: nodes.find(n => n.id === l.toNode)?.title,
+        toPort: l.toPort
+    })));
+    
     await globalExecutor.executeFromNode(buttonNodeId, nodes, links);
+    },
+
+      selectLink: (linkIndex: number) => {
+    set({ selectedLinkIndex: linkIndex });
   },
+
+  clearSelectedLink: () => {
+    set({ selectedLinkIndex: null });
+  },
+
+  deleteSelectedLink: () => {
+    const { selectedLinkIndex, links } = get();
+    if (selectedLinkIndex !== null) {
+      const newLinks = [...links];
+      newLinks.splice(selectedLinkIndex, 1);
+      set({ links: newLinks, selectedLinkIndex: null });
+    }
+  },
+
+  canConnect: (fromNodeId: number, fromPortIndex: number, toNodeId: number, toPortIndex: number) => {
+    const { nodes, links } = get();
+    
+    const fromNode = nodes.find(n => n.id === fromNodeId);
+    const toNode = nodes.find(n => n.id === toNodeId);
+    
+    if (!fromNode || !toNode) return false;
+    if (fromNodeId === toNodeId) return false;
+    
+    const fromPort = fromNode.outputs[fromPortIndex];
+    const toPort = toNode.inputs[toPortIndex];
+    
+    if (!fromPort || !toPort) return false;
+    
+    // Проверяем типы портов (flow или data)
+    if (fromPort.type !== toPort.type) return false;
+    
+    // Проверяем, занят ли входной порт
+    const isInputOccupied = links.some(l => l.toNode === toNodeId && l.toPort === toPortIndex);
+    if (isInputOccupied) return false;
+    
+    return true;
+  },
+
+  startDraggingLink: (fromNodeId: number, fromPortIndex: number, startX: number, startY: number) => {
+    set({
+      draggedLink: {
+        fromNodeId,
+        fromPortIndex,
+        startX,
+        startY,
+        currentX: startX,
+        currentY: startY,
+        isValid: false,
+      }
+    });
+  },
+
+  updateDraggedLink: (currentX: number, currentY: number, targetPort?: PortHit) => {
+    const { draggedLink, canConnect } = get();
+    if (!draggedLink) return;
+    
+    let isValid = false;
+    let targetNodeId: number | undefined;
+    let targetPortIndex: number | undefined;
+    
+    if (targetPort) {
+      isValid = canConnect(draggedLink.fromNodeId, draggedLink.fromPortIndex, targetPort.nodeId, targetPort.portIndex);
+      if (isValid) {
+        targetNodeId = targetPort.nodeId;
+        targetPortIndex = targetPort.portIndex;
+      }
+    }
+    
+    set({
+      draggedLink: {
+        ...draggedLink,
+        currentX,
+        currentY,
+        isValid,
+        targetNodeId,
+        targetPortIndex,
+      }
+    });
+  },
+
+  endDraggingLink: () => {
+    const { draggedLink, addLink, canConnect, nodes } = get();
+    if (!draggedLink) return;
+    
+    if (draggedLink.isValid && draggedLink.targetNodeId !== undefined && draggedLink.targetPortIndex !== undefined) {
+      const success = addLink(
+        draggedLink.fromNodeId,
+        draggedLink.fromPortIndex,
+        draggedLink.targetNodeId,
+        draggedLink.targetPortIndex
+      );
+      if (success) {
+        console.log('[Store] Link created successfully');
+      }
+    }
+    
+    set({ draggedLink: null });
+  },
+  
 }));

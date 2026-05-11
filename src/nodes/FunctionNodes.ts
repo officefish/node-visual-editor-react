@@ -5,24 +5,30 @@ import { TextNodeEditor, ConstantNodeEditor, MathNodeEditor } from '../component
 export function registerFunctionNodes() {
   NodeRegistry.register('console', {
     title: '🖨️ Console Log',
-    inputs: ['flow', 'value'],
-    outputs: ['flow'],
+    inputs: ['flow', 'value'],      // порт 0: flow, порт 1: value
+    outputs: ['flow'],               // порт 0: flow
     color: '#3498db',
     execute: async (_node: NodeType, _context: Map<string, any>, inputs: Record<string, any>) => {
-      console.log('[Console]', inputs.value);
+      const value = inputs.value;
+      console.log('[Console]', value);
       return { flow: true };
     },
   });
 
   NodeRegistry.register('text', {
     title: '📝 Текст',
-    inputs: ['flow'],
-    outputs: ['flow', 'result'],
+    inputs: ['flow'],                // порт 0: flow
+    outputs: ['flow', 'result'],     // порт 0: flow, порт 1: result
     color: '#3498db',
     config: { text: 'Привет, мир!' },
     component: TextNodeEditor,
-    execute: async (node: NodeType, _context: Map<string, any>, _inputs: Record<string, any>) => {
+    execute: async (node: NodeType, _context: Map<string, any>, inputs: Record<string, any>) => {
       const text = node.config.text || '';
+      if (node.isGetter) {
+        console.log(`[Text Getter] Значение: "${text}"`);
+        // Getter режим: возвращаем только result (порт 1), без flow (порт 0)
+        return { result: text };
+      }
       console.log(`[Text] Вывод текста: "${text}"`);
       return { flow: true, result: text };
     },
@@ -30,8 +36,8 @@ export function registerFunctionNodes() {
 
   NodeRegistry.register('constant', {
     title: '🔢 Константа',
-    inputs: [],
-    outputs: ['value'],
+    inputs: [],                      // нет flow порта
+    outputs: ['value'],              // порт 0: value (data)
     color: '#9b59b6',
     config: { value: 42, type: 'number' },
     component: ConstantNodeEditor,
@@ -44,15 +50,15 @@ export function registerFunctionNodes() {
       } else {
         value = String(value);
       }
-      console.log(`[Constant] Значение: ${value}`);
+      console.log(`[Constant${node.isGetter ? ' Getter' : ''}] Значение: ${value}`);
       return { value };
     },
   });
 
   NodeRegistry.register('math', {
     title: '🧮 Математика',
-    inputs: ['flow', 'a', 'b'],
-    outputs: ['flow', 'result'],
+    inputs: ['flow', 'a', 'b'],      // порт 0: flow, порт 1: a, порт 2: b
+    outputs: ['flow', 'result'],     // порт 0: flow, порт 1: result
     color: '#3498db',
     config: { operation: 'add' },
     component: MathNodeEditor,
@@ -73,8 +79,8 @@ export function registerFunctionNodes() {
 
   NodeRegistry.register('delay', {
     title: '⏳ Задержка',
-    inputs: ['flow'],
-    outputs: ['flow'],
+    inputs: ['flow'],                // порт 0: flow
+    outputs: ['flow'],               // порт 0: flow
     color: '#3498db',
     config: { ms: 500 },
     execute: async (node: NodeType) => {
@@ -86,8 +92,8 @@ export function registerFunctionNodes() {
 
   NodeRegistry.register('variable', {
     title: '📦 Переменная',
-    inputs: ['flow', 'value'],
-    outputs: ['flow'],
+    inputs: ['flow', 'value'],       // порт 0: flow, порт 1: value
+    outputs: ['flow'],               // порт 0: flow
     color: '#3498db',
     config: { action: 'set', varName: 'myVar' },
     execute: async (node: NodeType, context: Map<string, any>, inputs: Record<string, any>) => {
